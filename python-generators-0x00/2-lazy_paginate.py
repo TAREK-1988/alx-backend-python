@@ -1,27 +1,22 @@
-from typing import List, Dict, Any
-import seed
+#!/usr/bin/python3
+seed = __import__('seed')
 
-def paginate_users(page_size: int, offset: int) -> List[Dict[str, Any]]:
-    conn = seed.connect_to_prodev()
-    if not conn:
-        return []
-    try:
-        cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT user_id, name, email, age FROM user_data LIMIT %s OFFSET %s", (page_size, offset))
-        rows = cur.fetchall()
-        cur.close()
-        for r in rows:
-            r["age"] = int(r["age"])
-        return rows
-    finally:
-        conn.close()
 
-def lazy_pagination(page_size: int):
+def paginate_users(page_size, offset):
+    connection = seed.connect_to_prodev()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute(f"SELECT * FROM user_data LIMIT {page_size} OFFSET {offset}")
+    rows = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return rows
+
+
+def lazy_pagination(page_size):
     offset = 0
-    while True:  # loop الوحيدة
+    while True:
         page = paginate_users(page_size, offset)
         if not page:
             break
         yield page
         offset += page_size
-
