@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Unit tests for utils.py: access_nested_map, get_json, memoize.
-Covers happy paths, error paths, HTTP mocking, and memoization behavior.
+Unit tests for utils.py:
+- access_nested_map (happy/error paths)
+- get_json (HTTP mocking)
+- memoize (cache hits vs underlying call count)
 """
 from typing import Any, Dict, Tuple
 import unittest
@@ -23,7 +25,7 @@ class TestAccessNestedMap(unittest.TestCase):
         self,
         nested_map: Dict[str, Any],
         path: Tuple[str, ...],
-        expected: Any
+        expected: Any,
     ) -> None:
         """It returns the expected value for valid paths."""
         self.assertEqual(access_nested_map(nested_map, path), expected)
@@ -36,7 +38,7 @@ class TestAccessNestedMap(unittest.TestCase):
         self,
         nested_map: Dict[str, Any],
         path: Tuple[str, ...],
-        expected_msg: str
+        expected_msg: str,
     ) -> None:
         """It raises KeyError with the missing key in the message."""
         with self.assertRaises(KeyError) as cm:
@@ -51,20 +53,28 @@ class TestGetJson(unittest.TestCase):
         ("http://example.com", {"payload": True}),
         ("http://holberton.io", {"payload": False}),
     ])
-    def test_get_json(self, test_url: str, test_payload: Dict[str, Any]) -> None:
+    def test_get_json(
+        self,
+        test_url: str,
+        test_payload: Dict[str, Any],
+    ) -> None:
         """It returns the JSON payload and calls requests.get exactly once."""
         mock_response = Mock()
         mock_response.json.return_value = test_payload
-        with patch("utils.requests.get", return_value=mock_response) as mock_get:
+        with patch("utils.requests.get", return_value=mock_response) as mget:
             self.assertEqual(get_json(test_url), test_payload)
-            mock_get.assert_called_once_with(test_url)
+            mget.assert_called_once_with(test_url)
 
 
 class TestMemoize(unittest.TestCase):
     """Tests for utils.memoize decorator."""
 
     def test_memoize(self) -> None:
-        """It calls the wrapped method only once and caches the result."""
+        """
+        When calling the memoized property twice, the returned value is the
+        same, and the underlying method is called only once.
+        """
+
         class TestClass:
             """Simple class to exercise memoize decorator."""
 
@@ -78,8 +88,12 @@ class TestMemoize(unittest.TestCase):
                 return self.a_method()
 
         obj = TestClass()
-        with patch.object(TestClass, "a_method", return_value=42) as mock_m:
-            # First call computes, second call hits cache
+        with patch.object(
+            TestClass,
+            "a_method",
+            return_value=42,
+        ) as mock_m:
+            # First call computes, second call hits the cache
             self.assertEqual(obj.a_property, 42)
             self.assertEqual(obj.a_property, 42)
             mock_m.assert_called_once()
@@ -87,4 +101,3 @@ class TestMemoize(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
