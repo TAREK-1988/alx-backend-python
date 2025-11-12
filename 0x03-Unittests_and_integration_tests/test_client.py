@@ -16,7 +16,7 @@ try:
         apache2_repos as _APACHE2,
     )
 except Exception:  # pragma: no cover
-    # Fallbacks to keep imports and tests stable even if fixtures absent
+    # Fallbacks to keep imports stable if fixtures missing
     _ORG = {"repos_url": "https://api.github.com/orgs/test/repos"}
     _REPOS = [{"name": "x", "license": {"key": "apache-2.0"}}]
     _EXPECTED = ["x"]
@@ -95,13 +95,13 @@ class TestGithubOrgClient(TestCase):
 
 
 # ---- Task 8: Integration tests with fixtures ----
-@parameterized_class((
-    "org_payload",
-    "repos_payload",
-    "expected_repos",
-    "apache2_repos",
-), [
-    (_ORG, _REPOS, _EXPECTED, _APACHE2),
+@parameterized_class([
+    {
+        "org_payload": _ORG,
+        "repos_payload": _REPOS,
+        "expected_repos": _EXPECTED,
+        "apache2_repos": _APACHE2,
+    }
 ])
 class TestIntegrationGithubOrgClient(unittest.TestCase):
     """Integration tests for GithubOrgClient.public_repos."""
