@@ -1,49 +1,71 @@
 import uuid
-from django.db import models
+
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 from django.utils import timezone
-
-
-class UserRole(models.TextChoices):
-    GUEST = "guest", "Guest"
-    HOST = "host", "Host"
-    ADMIN = "admin", "Admin"
 
 
 class User(AbstractUser):
     """
-    Custom user model with:
-    - user_id (UUID primary key)
-    - unique email (used for login)
-    - role
-    - optional phone_number
-    - created_at timestamp
+    Custom user model.
+
+    Fields coming from AbstractUser (kept / overridden):
+      - first_name (NOT NULL)
+      - last_name  (NOT NULL)
+      - email      (unique, NOT NULL)
+      - password   (hashed password)
+
+    Extra fields required by the specification:
+      - user_id    (UUID primary key, indexed)
+      - phone_number (optional)
+      - role       (guest, host, admin)
+      - created_at (timestamp)
     """
 
     user_id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, db_index=True
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_index=True,
     )
-    username = models.CharField(
-        max_length=150,
-        blank=True,
-        null=True,
-        help_text="Unused username field kept for backwards compatibility.",
+
+    # Explicitly redefining these fields so they appear in this file
+    # and match the specification (NOT NULL VARCHAR).
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+
+    email = models.EmailField(
+        unique=True,
     )
-    email = models.EmailField(unique=True)
-    role = models.CharField(
-        max_length=10,
-        choices=UserRole.choices,
-        default=UserRole.GUEST,
-    )
+
     phone_number = models.CharField(
         max_length=32,
-        blank=True,
         null=True,
+        blank=True,
     )
-    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    ROLE_CHOICES = (
+        ("guest", "Guest"),
+        ("host", "Host"),
+        ("admin", "Admin"),
+    )
+
+    role = models.CharField(
+        max_length=10,
+        choices=ROLE_CHOICES,
+        default="guest",
+    )
+
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
+
+    # password_hash is handled by the inherited "password" field
+    # from AbstractUser, which stores a hashed password.
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = []  # email + password only
+    REQUIRED_FIELDS: list[str] = []
 
     def __str__(self) -> str:
         return f"{self.email} ({self.role})"
@@ -51,21 +73,29 @@ class User(AbstractUser):
 
 class Conversation(models.Model):
     """
-    Conversation model:
-    - conversation_id (UUID primary key)
-    - participants (many-to-many User)
-    - created_at timestamp
+    Conversation model.
+
+    - conversation_id: UUID primary key
+    - participants:    users taking part in the conversation
+    - created_at:      timestamp
     """
 
     conversation_id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, db_index=True
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_index=True,
     )
+
     participants = models.ManyToManyField(
         User,
         related_name="conversations",
-        blank=False,
     )
-    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
 
     def __str__(self) -> str:
         return f"Conversation {self.conversation_id}"
@@ -73,29 +103,40 @@ class Conversation(models.Model):
 
 class Message(models.Model):
     """
-    Message model:
-    - message_id (UUID primary key)
-    - sender (FK to User)
-    - conversation (FK to Conversation)
-    - message_body (text)
-    - sent_at timestamp
+    Message model.
+
+    - message_id:   UUID primary key
+    - sender:       FK to User(user_id)
+    - conversation: FK to Conversation(conversation_id)
+    - message_body: text body of the message
+    - sent_at:      timestamp
     """
 
     message_id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, db_index=True
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_index=True,
     )
+
     sender = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="sent_messages",
     )
+
     conversation = models.ForeignKey(
         Conversation,
         on_delete=models.CASCADE,
         related_name="messages",
     )
+
     message_body = models.TextField()
-    sent_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    sent_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
 
     class Meta:
         ordering = ["sent_at"]
@@ -103,4 +144,3 @@ class Message(models.Model):
     def __str__(self) -> str:
         preview = self.message_body[:30].replace("\n", " ")
         return f"{self.sender.email}: {preview}"
-
