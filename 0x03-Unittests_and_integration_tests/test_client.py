@@ -6,21 +6,7 @@ from unittest.mock import patch, PropertyMock
 from parameterized import parameterized, parameterized_class
 
 from client import GithubOrgClient
-
-# ---- Fixtures (real or safe fallbacks) ----
-try:
-    from fixtures import (  # type: ignore
-        org_payload as _ORG,
-        repos_payload as _REPOS,
-        expected_repos as _EXPECTED,
-        apache2_repos as _APACHE2,
-    )
-except Exception:  # pragma: no cover
-    # Fallbacks to keep imports stable if fixtures missing
-    _ORG = {"repos_url": "https://api.github.com/orgs/test/repos"}
-    _REPOS = [{"name": "x", "license": {"key": "apache-2.0"}}]
-    _EXPECTED = ["x"]
-    _APACHE2 = ["x"]
+from fixtures import TEST_PAYLOAD
 
 
 class TestGithubOrgClient(TestCase):
@@ -94,15 +80,11 @@ class TestGithubOrgClient(TestCase):
         )
 
 
-# ---- Task 8: Integration tests with fixtures ----
-@parameterized_class([
-    {
-        "org_payload": _ORG,
-        "repos_payload": _REPOS,
-        "expected_repos": _EXPECTED,
-        "apache2_repos": _APACHE2,
-    }
-])
+# ---- Task 8: Integration tests with fixtures.TEST_PAYLOAD ----
+@parameterized_class(
+    ("org_payload", "repos_payload", "expected_repos", "apache2_repos"),
+    TEST_PAYLOAD,
+)
 class TestIntegrationGithubOrgClient(unittest.TestCase):
     """Integration tests for GithubOrgClient.public_repos."""
 
