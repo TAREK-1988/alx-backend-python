@@ -1,36 +1,49 @@
-from typing import Any, Dict
-
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
+from .permissions import IsParticipantOfConversation
+from .pagination import MessagePagination
+from .filters import MessageFilter
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
     """
     ViewSet for listing, retrieving and creating conversations.
 
-    - list:    GET /conversations/
-    - create:  POST /conversations/
+    - list:     GET /conversations/
+    - create:   POST /conversations/
     - retrieve: GET /conversations/{conversation_id}/
     - send_message: POST /conversations/{conversation_id}/send-message/
     """
 
-    queryset = (
-        Conversation.objects.all()
-        .prefetch_related("participants", "messages__sender")
-    )
     serializer_class = ConversationSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
-    # Using DRF filters to satisfy checker requirement for "filters"
+    # Search & ordering
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["participants__email", "participants__first_name", "participants__last_name"]
+    search_fields = [
+        "participants__email",
+        "participants__first_name",
+        "participants__last_name",
+    ]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        """
+        Ensure users only see conversations where they are participants.
+        """
+        user = self.request.user
+        return (
+            Conversation.objects.filter(participants=user)
+            .prefetch_related("participants", "messages__sender")
+            .distinct()
+        )
 
     def create(self, request, *args, **kwargs) -> Response:
         """
@@ -46,7 +59,9 @@ class ConversationViewSet(viewsets.ModelViewSet):
         conversation = serializer.save()
         headers = self.get_success_headers(serializer.data)
         return Response(
-            ConversationSerializer(conversation).data,
+            ConversationSerializer(
+                conversation, context=self.get_serializer_context()
+            ).data,
             status=status.HTTP_201_CREATED,
             headers=headers,
         )
@@ -54,14 +69,14 @@ class ConversationViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["post"],
-        permission_classes=[IsAuthenticated],
+        permission_classes=[IsAuthenticated, IsParticipantOfConversation],
         url_path="send-message",
     )
     def send_message(self, request, pk=None) -> Response:
         """
         Send a message in an existing conversation.
 
-        POST /api/v1/conversations/{conversation_id}/send-message/
+        POST /api/conversations/{conversation_id}/send-message/
 
         Body:
         {
@@ -69,7 +84,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         }
         """
         conversation = self.get_object()
-        message_body: str | None = (request.data or {}).get("message_body")
+        message_body = (request.data or {}).get("message_body")
 
         if not message_body:
             return Response(
@@ -77,19 +92,16 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Optionally ensure the authenticated user is a participant
-        if not conversation.participants.filter(user_id=request.user.user_id).exists():
-            return Response(
-                {"detail": "You are not a participant in this conversation."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
+        # At this point, IsParticipantOfConversation already guarantees
+        # the user is a participant in this conversation.
         message = Message.objects.create(
             sender=request.user,
             conversation=conversation,
             message_body=message_body,
         )
-        message_serializer = MessageSerializer(message)
+        message_serializer = MessageSerializer(
+            message, context=self.get_serializer_context()
+        )
         return Response(message_serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -101,19 +113,48 @@ class MessageViewSet(viewsets.ModelViewSet):
     - create: POST /messages/
     """
 
-    queryset = Message.objects.select_related("sender", "conversation").all()
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
-    # Using DRF filters to allow searching and ordering
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    # Pagination + Filtering + search/ordering
+    pagination_class = MessagePagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = MessageFilter
     search_fields = ["sender__email", "message_body"]
     ordering_fields = ["sent_at"]
     ordering = ["sent_at"]
 
+    def get_queryset(self):
+        """
+        Users can only see messages in conversations they participate in.
+        Supports:
+        - /messages/
+        - /conversations/{conversation_pk}/messages/ (nested router)
+        """
+        user = self.request.user
+        qs = Message.objects.select_related("sender", "conversation").filter(
+            conversation__participants=user
+        ).distinct()
+
+        # Support nested route: /conversations/<conversation_pk>/messages/
+        conversation_pk = self.kwargs.get("conversation_pk")
+        if conversation_pk:
+            qs = qs.filter(conversation__conversation_id=conversation_pk)
+
+        return qs
+
     def perform_create(self, serializer: MessageSerializer) -> None:
         """
-        When creating a message through this ViewSet,
-        the sender is always the currently authenticated user.
+        When creating a message:
+        - The sender is always the authenticated user
+        - The user must be a participant of the conversation
         """
-        serializer.save(sender=self.request.user)
+        conversation = serializer.validated_data["conversation"]
+        user = self.request.user
+
+        if not conversation.participants.filter(pk=user.pk).exists():
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("You are not a participant in this conversation.")
+
+        serializer.save(sender=user)
