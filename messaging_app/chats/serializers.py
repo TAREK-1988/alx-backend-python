@@ -85,7 +85,13 @@ class ConversationSerializer(serializers.ModelSerializer):
             "last_message",
             "created_at",
         )
-        read_only_fields = ("conversation_id", "participants", "messages", "last_message", "created_at")
+        read_only_fields = (
+            "conversation_id",
+            "participants",
+            "messages",
+            "last_message",
+            "created_at",
+        )
 
     # ---------- Validation ----------
 
@@ -94,7 +100,9 @@ class ConversationSerializer(serializers.ModelSerializer):
         Ensure that at least one participant is provided when creating a conversation.
         """
         if not value:
-            raise serializers.ValidationError("At least one participant_id must be provided.")
+            raise serializers.ValidationError(
+                "At least one participant_id must be provided."
+            )
         return value
 
     # ---------- Computed fields ----------
@@ -111,27 +119,42 @@ class ConversationSerializer(serializers.ModelSerializer):
     # ---------- Create / Update ----------
 
     def create(self, validated_data: Dict[str, Any]) -> Conversation:
+        """
+        - Creates the conversation
+        - Adds participants from participant_ids
+        - Ensures the authenticated user is also a participant
+        """
         participant_ids: List[UUID] = validated_data.pop("participant_ids", [])
         conversation = Conversation.objects.create(**validated_data)
 
         if participant_ids:
             users = User.objects.filter(user_id__in=participant_ids)
             if not users.exists():
-                raise serializers.ValidationError("No valid users found for the given participant_ids.")
+                raise serializers.ValidationError(
+                    "No valid users found for the given participant_ids."
+                )
             conversation.participants.add(*users)
+
+        # Ensure the current authenticated user is also a participant
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            conversation.participants.add(request.user)
 
         return conversation
 
     def update(self, instance: Conversation, validated_data: Dict[str, Any]) -> Conversation:
-        participant_ids: Optional[List[UUID]] = validated_data.pop("participant_ids", None)
+        participant_ids: Optional[List[UUID]] = validated_data.pop(
+            "participant_ids", None
+        )
 
-        # Update basic fields if we add any in the future.
         instance = super().update(instance, validated_data)
 
         if participant_ids is not None:
             users = User.objects.filter(user_id__in=participant_ids)
             if not users.exists():
-                raise serializers.ValidationError("No valid users found for the given participant_ids.")
+                raise serializers.ValidationError(
+                    "No valid users found for the given participant_ids."
+                )
             instance.participants.set(users)
 
         return instance
