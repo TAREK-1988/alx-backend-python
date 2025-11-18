@@ -85,3 +85,21 @@ class OffensiveLanguageMiddleware:
 
         response = self.get_response(request)
         return response
+
+
+class RolepermissionMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.protected_prefixes = ("/admin/", "/moderation/")
+
+    def _is_protected_path(self, path: str) -> bool:
+        return any(path.startswith(prefix) for prefix in self.protected_prefixes)
+
+    def _has_admin_or_moderator_role(self, user) -> bool:
+        if user is None or not getattr(user, "is_authenticated", False):
+            return False
+
+        if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+            return True
+
+        role = getattr(user, "role", None)
