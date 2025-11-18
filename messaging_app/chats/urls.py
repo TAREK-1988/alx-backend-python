@@ -9,8 +9,7 @@ router = routers.DefaultRouter()
 router.register(r"conversations", ConversationViewSet, basename="conversation")
 router.register(r"messages", MessageViewSet, basename="message")
 
-# Nested router example for messages under conversations
-# The checker expects NestedDefaultRouter to appear in this file.
+# Nested router: /conversations/{conversation_pk}/messages/
 nested_router = nested_routers.NestedDefaultRouter(
     router,
     r"conversations",
@@ -23,8 +22,6 @@ nested_router.register(
 )
 
 urlpatterns = [
-    # /api/conversations/, /api/messages/
     path("", include(router.urls)),
-    # /api/conversations/{conversation_pk}/messages/
     path("", include(nested_router.urls)),
 ]
