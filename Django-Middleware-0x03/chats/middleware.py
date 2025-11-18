@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from django.conf import settings
 from django.http import HttpResponseForbidden
@@ -44,6 +44,44 @@ class RestrictAccessByTimeMiddleware:
             now = datetime.now().time()
             if now >= self.start_closed or now < self.end_closed:
                 return HttpResponseForbidden("Chat is not available between 9PM and 6AM.")
+
+        response = self.get_response(request)
+        return response
+
+
+class OffensiveLanguageMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.window_seconds = 60
+        self.max_requests = 5
+        self._requests_per_ip = {}
+
+    def _is_chat_message_request(self, request) -> bool:
+        if request.method != "POST":
+            return False
+        path = request.path
+        return path.startswith("/chats") or path.startswith("/api/chats")
+
+    def _get_client_ip(self, request) -> str:
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR", "unknown")
+
+    def __call__(self, request):
+        if self._is_chat_message_request(request):
+            client_ip = self._get_client_ip(request)
+            now = datetime.now()
+            window = timedelta(seconds=self.window_seconds)
+
+            timestamps = self._requests_per_ip.get(client_ip, [])
+            timestamps = [ts for ts in timestamps if now - ts <= window]
+
+            if len(timestamps) >= self.max_requests:
+                return HttpResponseForbidden("Rate limit exceeded: too many chat messages.")
+
+            timestamps.append(now)
+            self._requests_per_ip[client_ip] = timestamps
 
         response = self.get_response(request)
         return response
