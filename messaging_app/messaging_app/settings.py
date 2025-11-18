@@ -1,16 +1,24 @@
 from pathlib import Path
-import environ
 import os
+import environ
+from datetime import timedelta
 
+# --------------------------------------------------
+# Base paths and environment
+# --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(
     DEBUG=(bool, False),
     CORS_ALLOW_ALL=(bool, False),
 )
+
 # Optional .env file next to manage.py
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
+# --------------------------------------------------
+# Core settings
+# --------------------------------------------------
 DEBUG = env("DEBUG", default=True)
 SECRET_KEY = env("SECRET_KEY", default="unsafe-dev-secret-key")
 
@@ -20,7 +28,11 @@ ALLOWED_HOSTS = [
     if h.strip()
 ]
 
+# --------------------------------------------------
+# Applications
+# --------------------------------------------------
 INSTALLED_APPS = [
+    # Django default apps
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -28,12 +40,20 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
+    # Third-party apps
     "rest_framework",
+    "rest_framework.authtoken",
+    "django_filters",
     "corsheaders",
+    "rest_framework_simplejwt",  # required for JWT (Task 0)
 
+    # Local apps
     "chats",
 ]
 
+# --------------------------------------------------
+# Middleware
+# --------------------------------------------------
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -47,6 +67,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "messaging_app.urls"
 
+# --------------------------------------------------
+# Templates
+# --------------------------------------------------
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -66,6 +89,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "messaging_app.wsgi.application"
 ASGI_APPLICATION = "messaging_app.asgi.application"
 
+# --------------------------------------------------
+# Database
+# --------------------------------------------------
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -73,8 +99,14 @@ DATABASES = {
     }
 }
 
+# --------------------------------------------------
+# Custom user model (Task: authentication & roles)
+# --------------------------------------------------
 AUTH_USER_MODEL = "chats.User"
 
+# --------------------------------------------------
+# Password validation
+# --------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -90,31 +122,64 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# --------------------------------------------------
+# Internationalization
+# --------------------------------------------------
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Africa/Cairo"
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+# --------------------------------------------------
+# Static files
+# --------------------------------------------------
 STATIC_URL = "/static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# --------------------------------------------------
+# Django REST Framework configuration
+# --------------------------------------------------
 REST_FRAMEWORK = {
+    # Render/parsers for JSON APIs
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [
+
+    # Authentication: JWT + Session (Task 0)
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
-    ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
-    ],
+    ),
+
+    # Global permissions (Task 1 will refer to this)
+    # We still can override per-view using permission_classes
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+
+    # Global filtering backend (used in Task 2)
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ),
 }
 
-CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL", default=True)
+# --------------------------------------------------
+# Simple JWT configuration
+# --------------------------------------------------
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
 
+# --------------------------------------------------
+# CORS
+# --------------------------------------------------
+CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL", default=True)
