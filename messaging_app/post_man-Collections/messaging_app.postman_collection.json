@@ -1,0 +1,278 @@
+{
+  "info": {
+    "name": "Messaging App API (ALX Backend Python)",
+    "_postman_id": "a9b9b0c0-0000-4000-8000-000000000001",
+    "description": "Postman collection for testing the messaging_app Django REST API with JWT authentication.\n\nCovers:\n- Obtain JWT token\n- Refresh JWT token\n- Create conversation\n- List conversations\n- Send message in a conversation\n- List messages with pagination and filters\n- Unauthorized access to private conversations",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "conversation_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth - Obtain JWT Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/token/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "token",
+            ""
+          ]
+        },
+        "description": "Obtain access and refresh JWT tokens using the custom User model (email + password)."
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Refresh JWT Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/token/refresh/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "token",
+            "refresh",
+            ""
+          ]
+        },
+        "description": "Refresh the access token using a valid refresh token."
+      },
+      "response": []
+    },
+    {
+      "name": "Conversations - List My Conversations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/conversations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            ""
+          ]
+        },
+        "description": "Fetch all conversations where the authenticated user is a participant."
+      },
+      "response": []
+    },
+    {
+      "name": "Conversations - Create Conversation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"participant_ids\": [\n    \"00000000-0000-0000-0000-000000000002\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/conversations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            ""
+          ]
+        },
+        "description": "Create a new conversation by providing a list of participant UUIDs. The authenticated user is added automatically as a participant by the server."
+      },
+      "response": []
+    },
+    {
+      "name": "Conversations - Send Message in Conversation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message_body\": \"Hello from Postman!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/conversations/{{conversation_id}}/send-message/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            "{{conversation_id}}",
+            "send-message",
+            ""
+          ]
+        },
+        "description": "Send a message in an existing conversation. The sender is always the authenticated user."
+      },
+      "response": []
+    },
+    {
+      "name": "Messages - List Messages (paginated)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/messages/?page=1&page_size=20",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "messages",
+            ""
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "page_size",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "List messages visible to the authenticated user with pagination (20 messages per page)."
+      },
+      "response": []
+    },
+    {
+      "name": "Messages - Filter by user and date range",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/messages/?user={{user_id}}&from_date=2025-01-01T00:00:00&to_date=2025-12-31T23:59:59",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "messages",
+            ""
+          ],
+          "query": [
+            {
+              "key": "user",
+              "value": "{{user_id}}"
+            },
+            {
+              "key": "from_date",
+              "value": "2025-01-01T00:00:00"
+            },
+            {
+              "key": "to_date",
+              "value": "2025-12-31T23:59:59"
+            }
+          ]
+        },
+        "description": "Use MessageFilter (django-filters) to get messages from a specific user within a time range."
+      },
+      "response": []
+    },
+    {
+      "name": "Conversations - Unauthorized access (no token)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/conversations/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            ""
+          ]
+        },
+        "description": "Attempt to fetch conversations without a JWT token. Should return 401/403 and demonstrate that unauthorized users cannot access private conversations."
+      },
+      "response": []
+    }
+  ]
+}
