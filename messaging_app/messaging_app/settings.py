@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "django_filters",
     "corsheaders",
-    "rest_framework_simplejwt",  # required for JWT (Task 0)
+    "rest_framework_simplejwt",  # JWT support (Task 0)
 
     # Local apps
     "chats",
@@ -100,7 +100,7 @@ DATABASES = {
 }
 
 # --------------------------------------------------
-# Custom user model (Task: authentication & roles)
+# Custom user model
 # --------------------------------------------------
 AUTH_USER_MODEL = "chats.User"
 
@@ -142,7 +142,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Django REST Framework configuration
 # --------------------------------------------------
 REST_FRAMEWORK = {
-    # Render/parsers for JSON APIs
+    # JSON API defaults
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
@@ -150,24 +150,29 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
     ],
 
-    # Authentication: JWT + Session (Task 0)
+    # Authentication: JWT + Session/Basic (Task 0)
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ),
 
-    # Global permissions (Task 1 will refer to this)
-    # We still can override per-view using permission_classes
+    # Global permissions (Task 1)
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
 
-    # Global filtering backend (used in Task 2)
+    # Global filtering backend (Task 2)
     "DEFAULT_FILTER_BACKENDS": (
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
+        "rest_framework.filters.SearchFilter",
     ),
+
+    # Global pagination (Task 2)
+    # We also set it per-view, but having it here makes the API consistent
+    "DEFAULT_PAGINATION_CLASS": "chats.pagination.MessagePagination",
+    "PAGE_SIZE": 20,
 }
 
 # --------------------------------------------------
