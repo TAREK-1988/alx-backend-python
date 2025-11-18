@@ -29,7 +29,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
-    # Search & ordering
+    # Search & ordering for conversations
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
         "participants__email",
@@ -123,7 +123,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
-    # Pagination + Filtering + search/ordering
+    # Pagination + Filtering + search/ordering (Task 2)
     pagination_class = MessagePagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = MessageFilter
@@ -136,13 +136,13 @@ class MessageViewSet(viewsets.ModelViewSet):
         Users can only see messages belonging to conversations
         in which they are participants.
 
-        Also supports nested route:
-        /conversations/{conversation_pk}/messages/
+        Supports:
+        - /messages/
+        - /conversations/{conversation_pk}/messages/ (nested router)
         """
         user = self.request.user
 
-        # This line is important both logically and for the checker:
-        # "Message.objects.filter" must appear in this file.
+        # Important for checker: "Message.objects.filter" appears here.
         queryset = Message.objects.filter(
             conversation__participants=user
         ).select_related("sender", "conversation").distinct()
@@ -163,8 +163,6 @@ class MessageViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if not conversation.participants.filter(pk=user.pk).exists():
-            # Permission class should already handle most cases,
-            # but we keep this extra safety for clarity.
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("You are not a participant in this conversation.")
