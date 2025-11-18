@@ -1,29 +1,29 @@
+import os
 from datetime import datetime
-from pathlib import Path
 
 from django.conf import settings
 
 
 class RequestLoggingMiddleware:
+    """
+    Middleware that logs each request with timestamp, user and path.
+    """
+
     def __init__(self, get_response):
         self.get_response = get_response
-        self.log_file_path = Path(settings.BASE_DIR) / "requests.log"
+        log_file = getattr(settings, "REQUEST_LOG_FILE", "requests.log")
+        self.log_file_path = os.path.join(settings.BASE_DIR, "Django-Middleware-0x03", log_file)
+
+        # Ensure log directory exists
+        os.makedirs(os.path.dirname(self.log_file_path), exist_ok=True)
 
     def __call__(self, request):
-        user = getattr(request, "user", None)
-        if user and user.is_authenticated:
-            user_repr = str(user)
-        else:
-            user_repr = "Anonymous"
+        user = request.user if hasattr(request, "user") and request.user.is_authenticated else "Anonymous"
 
-        log_line = f"{datetime.now()} - User: {user_repr} - Path: {request.path}\n"
+        log_line = f"{datetime.now()} - User: {user} - Path: {request.path}\n"
 
-        try:
-            with self.log_file_path.open("a", encoding="utf-8") as log_file:
-                log_file.write(log_line)
-        except OSError:
-            # Fail silently if the log file cannot be written
-            pass
+        with open(self.log_file_path, "a", encoding="utf-8") as log_file:
+            log_file.write(log_line)
 
         response = self.get_response(request)
         return response
