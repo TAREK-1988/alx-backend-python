@@ -29,6 +29,7 @@ MIDDLEWARE = [
     "chats.middleware.RequestLoggingMiddleware",
 ]
 
+
 ROOT_URLCONF = "messaging_app.urls"
 
 TEMPLATES = [
