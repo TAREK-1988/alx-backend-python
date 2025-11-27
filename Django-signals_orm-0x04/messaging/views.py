@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from django.views.decorators.cache import cache_page  # Task 5: view cache
 
 from .models import Message
 
@@ -108,6 +109,7 @@ def message_thread(request: HttpRequest, message_id: int) -> HttpResponse:
 
 
 @login_required
+@cache_page(60)  # Task 5: cache this inbox view for 60 seconds
 def unread_inbox(request: HttpRequest) -> HttpResponse:
     """
     Display only unread messages in the user's inbox using the custom
@@ -116,6 +118,7 @@ def unread_inbox(request: HttpRequest) -> HttpResponse:
     This endpoint demonstrates:
       - Message.unread.unread_for_user(...)
       - use of .only(...) to optimize selected fields
+      - basic view-level caching with cache_page for 60 seconds
     """
     # The checker expects "Message.unread.unread_for_user" and ".only"
     queryset = (
