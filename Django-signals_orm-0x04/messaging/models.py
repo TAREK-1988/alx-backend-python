@@ -7,6 +7,7 @@ User = get_user_model()
 class Message(models.Model):
     """
     Represents a single message sent from one user to another.
+    Supports threaded conversations via the parent_message field.
     """
 
     sender = models.ForeignKey(
@@ -24,6 +25,15 @@ class Message(models.Model):
 
     # Task 1: track whether the message has ever been edited
     edited = models.BooleanField(default=False)
+
+    # Task 3: self-referential FK used to represent replies (threaded messages)
+    parent_message = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        related_name="replies",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         ordering = ["-timestamp"]
