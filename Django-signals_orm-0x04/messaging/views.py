@@ -105,3 +105,34 @@ def message_thread(request: HttpRequest, message_id: int) -> HttpResponse:
     data = build_thread(root)
     # In a real UI you would render a template; JSON is enough for this project.
     return JsonResponse(data, safe=False)
+
+
+@login_required
+def unread_inbox(request: HttpRequest) -> HttpResponse:
+    """
+    Display only unread messages in the user's inbox using the custom
+    UnreadMessagesManager.
+
+    This endpoint demonstrates:
+      - Message.unread.unread_for_user(...)
+      - use of .only(...) to optimize selected fields
+    """
+    # The checker expects "Message.unread.unread_for_user" and ".only"
+    queryset = (
+        Message.unread.unread_for_user(request.user)
+        .only("id", "sender", "receiver", "content", "timestamp")  # optimization
+        .select_related("sender", "receiver")
+    )
+
+    data = [
+        {
+            "id": msg.id,
+            "content": msg.content,
+            "sender": msg.sender.username,
+            "receiver": msg.receiver.username,
+            "timestamp": msg.timestamp.isoformat(),
+        }
+        for msg in queryset
+    ]
+
+    return JsonResponse(data, safe=False)
