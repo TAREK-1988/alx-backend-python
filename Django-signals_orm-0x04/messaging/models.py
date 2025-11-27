@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 
+from .managers import UnreadMessagesManager  # Task 4
+
 User = get_user_model()
 
 
@@ -34,6 +36,13 @@ class Message(models.Model):
         null=True,
         blank=True,
     )
+
+    # Task 4: track whether this message has been read
+    read = models.BooleanField(default=False)
+
+    # Default manager plus a custom unread manager
+    objects = models.Manager()
+    unread = UnreadMessagesManager()  # <-- checker looks for "unread"
 
     class Meta:
         ordering = ["-timestamp"]
