@@ -29,11 +29,16 @@ services:
     depends_on:
       - db
     env_file:
-      # Load environment variables for Django and DB
+      # Load environment variables for Django and DB (DEBUG, SECRET_KEY, etc.)
       - .env
     environment:
-      # Override or provide default values if needed
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      # Keep old style variable (if used anywhere)
+      DJANGO_DEBUG: ${DEBUG:-1}
+      # Explicitly expose DEBUG to match settings.py (env("DEBUG", ...))
+      DEBUG: ${DEBUG:-1}
+      # Tell settings.py to use MySQL instead of SQLite inside Docker
+      USE_DOCKER_DB: "1"
+      # Database host/port inside Docker network
       MYSQL_HOST: db
       MYSQL_PORT: "3306"
     volumes:
