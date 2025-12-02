@@ -90,7 +90,7 @@ WSGI_APPLICATION = "messaging_app.wsgi.application"
 ASGI_APPLICATION = "messaging_app.asgi.application"
 
 # --------------------------------------------------
-# Database
+# Database (original SQLite config)
 # --------------------------------------------------
 DATABASES = {
     "default": {
@@ -98,6 +98,28 @@ DATABASES = {
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+# --------------------------------------------------
+# Optional MySQL override for Docker
+# --------------------------------------------------
+# When running inside Docker, set USE_DOCKER_DB=1 in the .env file.
+# This will replace the default SQLite configuration with a MySQL database
+# configuration that reads its values from environment variables
+# (used by docker-compose and the .env file).
+USE_DOCKER_DB = env.bool("USE_DOCKER_DB", default=False)
+
+if USE_DOCKER_DB:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": env("MYSQL_DB", default="messaging_db"),
+        "USER": env("MYSQL_USER", default="messaging_user"),
+        "PASSWORD": env("MYSQL_PASSWORD", default="messaging_password"),
+        "HOST": env("MYSQL_HOST", default="localhost"),
+        "PORT": env("MYSQL_PORT", default="3306"),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+        },
+    }
 
 # --------------------------------------------------
 # Custom user model
@@ -170,7 +192,6 @@ REST_FRAMEWORK = {
     ),
 
     # Global pagination: we explicitly reference PageNumberPagination
-    # so that the checker detects it.
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
 }
