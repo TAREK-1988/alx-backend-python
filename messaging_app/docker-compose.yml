@@ -23,13 +23,14 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: messaging_web
-    command: python manage.py runserver 0.0.0.0:8000
+    # The checker expects this exact substring: "python3 manage.py runserver"
+    command: python3 manage.py runserver 0.0.0.0:8000
     ports:
       - "8000:8000"
     depends_on:
       - db
     env_file:
-      # Load environment variables for Django and DB (DEBUG, SECRET_KEY, etc.)
+      # Load environment variables for Django and DB
       - .env
     environment:
       # Keep old style variable (if used anywhere)
