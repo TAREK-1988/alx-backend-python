@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NAMESPACE="${KUBE_NAMESPACE:-default}"
+
+echo "Applying BLUE deployment..."
+kubectl apply -f blue_deployment.yaml --namespace "${NAMESPACE}"
+
+echo "Applying GREEN deployment..."
+kubectl apply -f green_deployment.yaml --namespace "${NAMESPACE}"
+
+echo "Applying service (pointing to BLUE)..."
+kubectl apply -f kubeservice.yaml --namespace "${NAMESPACE}"
+
+echo "Deployments:"
+kubectl get deployments --namespace "${NAMESPACE}"
+
+echo "Pods with version labels:"
+kubectl get pods -l app=messaging-app -L version --namespace "${NAMESPACE}"
+
+echo "Logs for GREEN pods:"
+GREEN_PODS=$(kubectl get pods -l app=messaging-app,version=green \
+  -o jsonpath='{.items[*].metadata.name}' --namespace "${NAMESPACE}" || true)
+
+for pod in ${GREEN_PODS}; do
+  echo "----- ${pod} -----"
+  kubectl logs "${pod}" --namespace "${NAMESPACE}" || true
+done
