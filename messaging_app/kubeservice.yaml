@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: messaging-app-service
+  labels:
+    app: messaging-app
+spec:
+  type: ClusterIP
+  selector:
+    app: messaging-app
+    version: blue
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
