@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NAMESPACE="${KUBE_NAMESPACE:-default}"
+DEPLOYMENT_NAME="messaging-app-blue"
+SERVICE_NAME="messaging-app-service"
+
+echo "Applying updated blue deployment..."
+kubectl apply -f blue_deployment.yaml --namespace "${NAMESPACE}"
+
+echo "Waiting for rolling update to complete..."
+kubectl rollout status deployment/"${DEPLOYMENT_NAME}" --namespace "${NAMESPACE}"
+
+echo "Starting port-forward on :8000..."
+kubectl port-forward service/"${SERVICE_NAME}" 8000:8000 --namespace "${NAMESPACE}" >/dev/null 2>&1 &
+PF_PID=$!
+sleep 3
+
+echo "Sending HTTP requests with curl to detect any downtime..."
+for i in $(seq 1 20); do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/ || echo "ERR")
+  echo "Request #${i}: HTTP ${STATUS}"
+  sleep 2
+done
+
+echo "Stopping port-forward..."
+kill "${PF_PID}" >/dev/null 2>&1 || true
+
+echo "Current blue pods:"
+kubectl get pods -l app=messaging-app,version=blue --namespace "${NAMESPACE}"
