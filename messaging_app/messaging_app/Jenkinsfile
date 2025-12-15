@@ -1,0 +1,98 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  parameters {
+    string(name: 'GIT_URL', defaultValue: 'https://github.com/TAREK-1988/alx-backend-python.git', description: 'Git repository URL')
+    string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git branch to build')
+    string(name: 'DOCKER_IMAGE_NAME', defaultValue: 'messaging_app', description: 'Docker image name (repo part)')
+  }
+
+  environment {
+    PYTHON_IMAGE = "python:3.11-slim"
+    REPORT_DIR = "messaging_app/reports"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        deleteDir()
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: "*/${params.GIT_BRANCH}"]],
+          userRemoteConfigs: [[
+            url: "${params.GIT_URL}",
+            credentialsId: 'github-creds'
+          ]]
+        ])
+      }
+    }
+
+    stage('Run Tests (pytest)') {
+      steps {
+        sh """
+          set -e
+          mkdir -p "${REPORT_DIR}"
+
+          docker run --rm \\
+            -v "\$WORKSPACE:/workspace" \\
+            -w /workspace/messaging_app \\
+            ${PYTHON_IMAGE} bash -lc '
+              python -m pip install --upgrade pip
+              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+              pip install pytest pytest-django
+              pytest -q --junitxml=reports/pytest.xml
+            '
+        """
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        sh """
+          set -e
+          docker build -t "${params.DOCKER_IMAGE_NAME}:local" ./messaging_app
+        """
+      }
+    }
+
+    stage('Push Docker Image') {
+      when {
+        branch 'main'
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'dockerhub-creds',
+          usernameVariable: 'DOCKERHUB_USERNAME',
+          passwordVariable: 'DOCKERHUB_TOKEN'
+        )]) {
+          sh """
+            set -e
+            echo "\$DOCKERHUB_TOKEN" | docker login -u "\$DOCKERHUB_USERNAME" --password-stdin
+
+            IMAGE="docker.io/\$DOCKERHUB_USERNAME/${params.DOCKER_IMAGE_NAME}"
+            TAG="\${GIT_COMMIT}"
+
+            docker tag "${params.DOCKER_IMAGE_NAME}:local" "\$IMAGE:\$TAG"
+            docker tag "${params.DOCKER_IMAGE_NAME}:local" "\$IMAGE:latest"
+
+            docker push "\$IMAGE:\$TAG"
+            docker push "\$IMAGE:latest"
+          """
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: "${REPORT_DIR}/pytest.xml"
+      archiveArtifacts allowEmptyArchive: true, artifacts: "${REPORT_DIR}/**"
+      cleanWs()
+    }
+  }
+}
