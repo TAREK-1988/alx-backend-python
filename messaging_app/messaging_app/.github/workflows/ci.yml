@@ -1,0 +1,76 @@
+name: CI - Tests, Lint, Coverage
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test_lint_coverage:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: messaging_test
+          MYSQL_USER: messaging_user
+          MYSQL_PASSWORD: messaging_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    env:
+      MYSQL_DB: messaging_test
+      MYSQL_USER: messaging_user
+      MYSQL_PASSWORD: messaging_pass
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      DJANGO_SETTINGS_MODULE: messaging_app.settings
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-mysql-client default-libmysqlclient-dev build-essential
+
+      - name: Install dependencies
+        working-directory: messaging_app
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest pytest-django flake8 coverage
+
+      - name: Lint (flake8)
+        working-directory: messaging_app
+        run: |
+          flake8 . --count --show-source --statistics
+
+      - name: Tests + Coverage
+        working-directory: messaging_app
+        run: |
+          mkdir -p reports
+          coverage run -m pytest -q --junitxml=reports/pytest.xml
+          coverage xml -o reports/coverage.xml
+          coverage report -m
+
+      - name: Upload artifacts (reports)
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-reports
+          path: |
+            messaging_app/reports/pytest.xml
+            messaging_app/reports/coverage.xml
